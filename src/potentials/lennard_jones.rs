@@ -1,4 +1,4 @@
-use crate::potential::PairPotential;
+use crate::potentials::PairPotential;
 
 pub struct LJ;
 impl PairPotential for LJ {

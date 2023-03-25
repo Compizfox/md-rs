@@ -3,7 +3,6 @@ mod integration;
 mod forces;
 mod utility;
 mod thermostat;
-mod potential;
 mod potentials;
 
 use types::Particle;
