@@ -3,7 +3,7 @@ use cgmath::{Vector3, InnerSpace};
 use rayon::prelude::*;
 use crate::{N_PARTICLES, BOX_SIZE, CUTOFF, Particle};
 use crate::utility::add_arrays;
-use crate::potential::PairPotential;
+use crate::potentials::PairPotential;
 
 /// Computes pair interactions: set forces in Particle.
 /// Returns total potential energy.
@@ -66,7 +66,7 @@ mod tests {
     use crate::Particle;
     use crate::forces::compute_forces;
     use crate::potentials::LJ;
-    use crate::potential::PairPotential;
+    use crate::potentials::PairPotential;
 
     #[test]
     fn force() {
