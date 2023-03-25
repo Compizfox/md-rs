@@ -13,6 +13,7 @@ use cgmath::{Point3, Vector3, InnerSpace};
 
 use crate::forces::{compute_forces};
 use crate::integration::verlet;
+use crate::xyz::XYZWriter;
 
 const N_PARTICLES: usize = 1000;
 const N_STEPS: u32 = 1000_000;
@@ -22,6 +23,7 @@ const TIMESTEP: f64 = 0.001; // τ
 const CUTOFF: f64 = 2.5;     // σ
 const LIMIT_TIMESTEPS: u32 = 5000;
 const LIMIT_SPEED: f64 = 1.0;
+const DUMP_INTERVAL: u32 = 10;
 
 type PP = potentials::LJ; // Pair potential
 
@@ -47,6 +49,7 @@ fn main() {
         })
         .collect();
 
+    let mut xyz_writer = XYZWriter::new("traj.xyz.gz");
     // Main MD loop
     for i in 0..N_STEPS {
         let potential = compute_forces::<PP>(&mut particles);
@@ -59,8 +62,11 @@ fn main() {
                 0.5*p.velocity.magnitude2()
             })
             .sum();
-        if i % 100 == 0 {
-            println!("Timestep {}, E={}, E_kin={}, E_pot={}", i, potential+kinetic, kinetic, potential);
+
+        if i % DUMP_INTERVAL == 0 {
+            println!("Timestep {}, E={}, E_kin={}, E_pot={}, T={}", i, potential+kinetic, kinetic,
+                     potential, kinetic*2.0/3.0/N_PARTICLES as f64);
+            xyz_writer.write_frame(&particles);
         }
     }
 }
