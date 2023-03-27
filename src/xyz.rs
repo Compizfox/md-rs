@@ -15,7 +15,10 @@ pub struct XYZWriter {
 impl XYZWriter {
     pub fn new(path: &str) -> Self {
         Self {
-            bufwriter: BufWriter::with_capacity(1024 * 1024, GzEncoder::new(File::create(path).unwrap(), Compression::best())),
+            bufwriter: BufWriter::with_capacity(
+                8 * 1024,
+                GzEncoder::new(File::create(path).unwrap(), Compression::default())
+            ),
         }
     }
 
