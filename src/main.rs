@@ -2,7 +2,7 @@ mod types;
 mod integrators;
 mod forces;
 mod utility;
-mod thermostat;
+mod thermostats;
 mod potentials;
 
 use types::Particle;
@@ -12,15 +12,16 @@ use cgmath::{Point3, Vector3, InnerSpace};
 
 use crate::forces::{compute_forces};
 use crate::integrators::{Integrator};
+use crate::thermostats::{Andersen, Thermostat};
 use crate::xyz::XYZWriter;
 
 const N_PARTICLES: usize = 1000;
-const N_STEPS: u32 = 1000_000;
+const N_STEPS: u32 = 5_000;
 const BOX_SIZE: f64 = 20.0;  // σ
 const TEMP: f64 = 0.5;       // ε/k_B
-const TIMESTEP: f64 = 0.001; // τ
+const TIMESTEP: f64 = 0.01; // τ
 const CUTOFF: f64 = 2.5;     // σ
-const LIMIT_TIMESTEPS: u32 = 5000;
+const LIMIT_TIMESTEPS: u32 = 200;
 const LIMIT_SPEED: f64 = 1.0;
 const DUMP_INTERVAL: u32 = 10;
 
@@ -47,6 +48,7 @@ fn main() {
         })
         .collect();
 
+    let thermostat = Andersen::new(TEMP);
     let mut xyz_writer = XYZWriter::new("traj.xyz.gz");
     // Main MD loop
     for i in 0..N_STEPS {
@@ -63,6 +65,7 @@ fn main() {
             .par_iter_mut()
             .map(|p| {
                 I::integrate_b(p, if i < LIMIT_TIMESTEPS {Some(LIMIT_SPEED)} else {None});
+                thermostat.run(p);
                 0.5*p.velocity.magnitude2()
             })
             .sum();
