@@ -4,7 +4,9 @@ mod forces;
 mod utility;
 mod thermostats;
 mod potentials;
+mod xyz;
 
+use std::time::Instant;
 use std::sync::mpsc::channel;
 use types::Particle;
 use rayon::prelude::*;
@@ -30,6 +32,8 @@ type PP = potentials::LJ; // Pair potential
 type I = integrators::VelocityVerlet; // Integrator
 
 fn main() {
+    let before = Instant::now();
+
     // Initialize particle positions and velocities
     let mut particles: Vec<Particle> = (0..N_PARTICLES)
         .into_par_iter()
@@ -76,13 +80,16 @@ fn main() {
             .sum();
 
         if i % DUMP_INTERVAL == 0 {
-            println!("Timestep {}, E={}, E_kin={}, E_pot={}, T={}", i, potential+kinetic, kinetic,
-                     potential, kinetic*2.0/3.0/N_PARTICLES as f64);
+            println!("Timestep {}, E={}, E_kin={}, E_pot={}, T={}", i, potential + kinetic, kinetic,
+                     potential, kinetic * 2.0 / 3.0 / N_PARTICLES as f64);
             xyz_writer.write_frame(&particles);
+        }
         if rx.try_recv().is_ok() {
             println!("Terminating...");
             drop(xyz_writer);
             break;
         }
     }
+
+    println!("Wall time: {:.2?}", before.elapsed());
 }
