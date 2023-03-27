@@ -1,6 +1,6 @@
 use cgmath::{Point3, Vector3};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Particle {
     pub old_position: Point3<f64>,
     pub position:     Point3<f64>,

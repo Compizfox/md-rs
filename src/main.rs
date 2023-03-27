@@ -1,5 +1,5 @@
 mod types;
-mod integration;
+mod integrators;
 mod forces;
 mod utility;
 mod thermostat;
@@ -11,7 +11,7 @@ use rand::prelude::*;
 use cgmath::{Point3, Vector3, InnerSpace};
 
 use crate::forces::{compute_forces};
-use crate::integration::verlet;
+use crate::integrators::{Integrator};
 use crate::xyz::XYZWriter;
 
 const N_PARTICLES: usize = 1000;
@@ -25,6 +25,7 @@ const LIMIT_SPEED: f64 = 1.0;
 const DUMP_INTERVAL: u32 = 10;
 
 type PP = potentials::LJ; // Pair potential
+type I = integrators::VelocityVerlet; // Integrator
 
 fn main() {
     // Initialize particle positions and velocities
@@ -33,11 +34,9 @@ fn main() {
         .map_init(|| rand::thread_rng(), |rng, i| {
             // Give particles random (uniformly distributed) positions and (Gaussian distributed) velocities
             let u = rand_distr::Uniform::new(0.0, BOX_SIZE);
-            let position = Point3 { x: u.sample(rng), y: u.sample(rng), z: u.sample(rng) };
-            let n = rand_distr::Normal::new(0.0, TEMP).unwrap();
-            let velocity = Vector3 { x: n.sample(rng), y: n.sample(rng), z: n.sample(rng) };
-
-            println!("{}: {:?} {:?}", i, position, velocity);
+            let position = Point3{ x: u.sample(rng), y: u.sample(rng), z: u.sample(rng) };
+            let n = rand_distr::Normal::new(0.0, TEMP.sqrt()).unwrap();
+            let velocity = Vector3{ x: n.sample(rng), y: n.sample(rng), z: n.sample(rng) };
 
             Particle {
                 old_position: position,
@@ -51,13 +50,19 @@ fn main() {
     let mut xyz_writer = XYZWriter::new("traj.xyz.gz");
     // Main MD loop
     for i in 0..N_STEPS {
+        particles
+            .par_iter_mut()
+            .for_each(|p| {
+                I::integrate_a(p);
+            });
+
         let potential = compute_forces::<PP>(&mut particles);
 
         // Loop over particles, integrating equations of motion and computing kinetic energy
         let kinetic: f64 = particles
             .par_iter_mut()
             .map(|p| {
-                verlet(p, if i < LIMIT_TIMESTEPS {Some(LIMIT_SPEED)} else {None});
+                I::integrate_b(p, if i < LIMIT_TIMESTEPS {Some(LIMIT_SPEED)} else {None});
                 0.5*p.velocity.magnitude2()
             })
             .sum();
