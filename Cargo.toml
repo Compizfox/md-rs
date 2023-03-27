@@ -6,9 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+async-compression = { version = "0.3.15", features = ["tokio", "gzip", "zstd"] }
 cgmath = "0.18.0"
 ctrlc = "3.2.5"
-flate2 = "1.0.25"
 rand = "0.8.5"
 rand_distr = "0.4.3"
 rayon = "1.7.0"
+tokio = { version = "1.26.0", features = ["fs", "io-util", "macros", "rt", "rt-multi-thread"] }

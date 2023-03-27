@@ -31,9 +31,9 @@ const DUMP_INTERVAL: u32 = 10;
 type PP = potentials::LJ; // Pair potential
 type I = integrators::VelocityVerlet; // Integrator
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let before = Instant::now();
-
     // Initialize particle positions and velocities
     let mut particles: Vec<Particle> = (0..N_PARTICLES)
         .into_par_iter()
@@ -54,7 +54,7 @@ fn main() {
         .collect();
 
     let thermostat = Andersen::new(TEMP);
-    let mut xyz_writer = XYZWriter::new("traj.xyz.gz");
+    let mut xyz_writer = XYZWriter::new("traj.xyz.gz").await;
 
     let (tx, rx) = channel();
     ctrlc::set_handler(move || tx.send(()).unwrap()).unwrap();
@@ -80,10 +80,11 @@ fn main() {
             .sum();
 
         if i % DUMP_INTERVAL == 0 {
-            println!("Timestep {}, E={}, E_kin={}, E_pot={}, T={}", i, potential + kinetic, kinetic,
-                     potential, kinetic * 2.0 / 3.0 / N_PARTICLES as f64);
-            xyz_writer.write_frame(&particles);
+            println!("Timestep {}, E={}, E_kin={}, E_pot={}, T={}", i, potential+kinetic, kinetic,
+                     potential, kinetic*2.0/3.0/N_PARTICLES as f64);
+            xyz_writer.write_frame(&particles).await;
         }
+
         if rx.try_recv().is_ok() {
             println!("Terminating...");
             drop(xyz_writer);
