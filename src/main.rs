@@ -5,6 +5,7 @@ mod utility;
 mod thermostats;
 mod potentials;
 
+use std::sync::mpsc::channel;
 use types::Particle;
 use rayon::prelude::*;
 use rand::prelude::*;
@@ -50,6 +51,10 @@ fn main() {
 
     let thermostat = Andersen::new(TEMP);
     let mut xyz_writer = XYZWriter::new("traj.xyz.gz");
+
+    let (tx, rx) = channel();
+    ctrlc::set_handler(move || tx.send(()).unwrap()).unwrap();
+
     // Main MD loop
     for i in 0..N_STEPS {
         particles
@@ -74,6 +79,10 @@ fn main() {
             println!("Timestep {}, E={}, E_kin={}, E_pot={}, T={}", i, potential+kinetic, kinetic,
                      potential, kinetic*2.0/3.0/N_PARTICLES as f64);
             xyz_writer.write_frame(&particles);
+        if rx.try_recv().is_ok() {
+            println!("Terminating...");
+            drop(xyz_writer);
+            break;
         }
     }
 }
