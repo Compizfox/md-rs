@@ -6,15 +6,14 @@ mod thermostats;
 mod potentials;
 mod xyz;
 
-use std::time::Instant;
 use std::sync::mpsc::channel;
 use types::Particle;
 use rayon::prelude::*;
 use rand::prelude::*;
 use cgmath::{Point3, Vector3, InnerSpace};
 
-use crate::forces::{compute_forces};
-use crate::integrators::{Integrator};
+use crate::forces::compute_forces;
+use crate::integrators::Integrator;
 use crate::thermostats::{Andersen, Thermostat};
 use crate::xyz::XYZWriter;
 
@@ -27,13 +26,12 @@ const CUTOFF: f64 = 2.5;     // σ
 const LIMIT_TIMESTEPS: u32 = 200;
 const LIMIT_SPEED: f64 = 1.0;
 const DUMP_INTERVAL: u32 = 10;
+const TRAJECTORY_PATH: &str = "traj.xyz.gz";
 
 type PP = potentials::LJ; // Pair potential
 type I = integrators::VelocityVerlet; // Integrator
 
 fn main() {
-    let before = Instant::now();
-
     // Initialize particle positions and velocities
     let mut particles: Vec<Particle> = (0..N_PARTICLES)
         .into_par_iter()
@@ -54,7 +52,7 @@ fn main() {
         .collect();
 
     let thermostat = Andersen::new(TEMP);
-    let mut xyz_writer = XYZWriter::new("traj.xyz.gz");
+    let mut xyz_writer = XYZWriter::new(TRAJECTORY_PATH);
 
     let (tx, rx) = channel();
     ctrlc::set_handler(move || tx.send(()).unwrap()).unwrap();
@@ -84,12 +82,12 @@ fn main() {
                      potential, kinetic * 2.0 / 3.0 / N_PARTICLES as f64);
             xyz_writer.write_frame(&particles);
         }
+
+        // Check for SIGINT
         if rx.try_recv().is_ok() {
             println!("Terminating...");
             drop(xyz_writer);
             break;
         }
     }
-
-    println!("Wall time: {:.2?}", before.elapsed());
 }

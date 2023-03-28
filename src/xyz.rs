@@ -1,42 +1,71 @@
 use std::fs::File;
-use std::io::Write;
+use std::io::{Write, BufWriter};
+use std::sync::mpsc::{channel, Receiver, Sender};
+use std::thread;
 
-use flate2::Compression;
 use flate2::write::GzEncoder;
-use std::io::BufWriter;
+use flate2::Compression;
+use rayon::prelude::*;
 
-use crate::N_PARTICLES;
 use crate::types::Particle;
+use crate::N_PARTICLES;
 
 pub struct XYZWriter {
-    bufwriter: BufWriter<GzEncoder<File>>,
+    io_tx: Option<Sender<Vec<u8>>>,
+    pub h: Option<thread::JoinHandle<()>>,
 }
 
 impl XYZWriter {
     pub fn new(path: &str) -> Self {
-        Self {
-            bufwriter: BufWriter::with_capacity(
+        let (io_tx, io_rx): (Sender<Vec<u8>>, Receiver<Vec<u8>>) = channel();
+
+        // Spawn IO thread
+        let p = path.to_owned();
+        let h = thread::spawn(move || {
+            let mut bufwriter = BufWriter::with_capacity(
                 8 * 1024,
-                GzEncoder::new(File::create(path).unwrap(), Compression::default())
-            ),
-        }
+                GzEncoder::new(File::create(p).unwrap(), Compression::best()),
+            );
+
+            for line in io_rx {
+                bufwriter.write_all(&line).unwrap();
+            }
+
+            bufwriter.flush().expect("Could not flush output buffer");
+            bufwriter
+                .into_inner()
+                .unwrap()
+                .finish()
+                .expect("Could not finish gzipped output");
+        });
+
+        Self { io_tx: Some(io_tx), h: Some(h) }
     }
 
     pub fn write_frame(&mut self, particles: &[Particle]) {
-        write!(self.bufwriter, "{}\n\n", N_PARTICLES).unwrap();
-        for (i, p) in particles.iter().enumerate() {
-            write!(self.bufwriter, "{}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\n",
-                   i,
-                   p.position.x, p.position.y, p.position.z,
-                   p.velocity.x, p.velocity.y, p.velocity.z
-            ).unwrap();
-        }
+        let mut line: Vec<u8> = vec![];
+
+        write!(line, "{}\n\n", N_PARTICLES).unwrap();
+
+        line.append(&mut particles
+            .par_iter()
+            .enumerate()
+            .map(|(i, p)| {
+                format!(
+                    "{}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\n", i,
+                    p.position.x, p.position.y, p.position.z,
+                    p.velocity.x, p.velocity.y, p.velocity.z
+                )
+            })
+            .reduce(|| String::new(), |a, b| a + &b).into_bytes());
+
+        self.io_tx.as_ref().unwrap().send(line).unwrap();
     }
 }
 
 impl Drop for XYZWriter {
     fn drop(&mut self) {
-        self.bufwriter.flush().expect("Failed to flush write buffer");
-        self.bufwriter.get_mut().try_finish().expect("Failed to finish gzip");
+        self.io_tx.take();
+        self.h.take().unwrap().join().unwrap();
     }
 }
