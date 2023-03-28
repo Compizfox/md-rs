@@ -5,6 +5,7 @@ mod utility;
 mod thermostats;
 mod potentials;
 mod xyz;
+mod thermo;
 
 use std::sync::mpsc::channel;
 use types::Particle;
@@ -14,6 +15,7 @@ use cgmath::{Point3, Vector3, InnerSpace};
 
 use crate::forces::compute_forces;
 use crate::integrators::Integrator;
+use crate::thermo::temperature;
 use crate::thermostats::{Andersen, Thermostat};
 use crate::xyz::XYZWriter;
 
@@ -79,7 +81,7 @@ fn main() {
 
         if i % DUMP_INTERVAL == 0 {
             println!("Timestep {}, E={}, E_kin={}, E_pot={}, T={}", i, potential + kinetic, kinetic,
-                     potential, kinetic * 2.0 / 3.0 / N_PARTICLES as f64);
+                     potential, temperature(kinetic, N_PARTICLES));
             xyz_writer.write_frame(&particles);
         }
 
