@@ -1,6 +1,9 @@
+use std::cell::RefCell;
 use std::vec;
 use cgmath::{Vector3, InnerSpace, Zero};
 use rayon::prelude::*;
+use thread_local::ThreadLocal;
+
 use crate::{N_PARTICLES, BOX_SIZE, CUTOFF, Particle};
 use crate::utility::add_arrays;
 use crate::potentials::PairPotential;
@@ -9,14 +12,18 @@ use crate::potentials::PairPotential;
 /// Returns total potential energy.
 /// * `particles` - Slice of particles
 pub fn compute_forces<P: PairPotential>(particles: &mut[Particle]) -> f64 {
+    let tls: ThreadLocal<RefCell<Vec<Vector3<f64>>>> = ThreadLocal::new();
+
     // Loop over all unique pairs of particles
-    let (potential, forces): (f64, Vec<Vector3<f64>>) = particles
+    let potential: f64 = particles
         .par_iter()
         .enumerate()
-        .map(| (i, p1) | {
-            // Temporary force array
-            let mut force = vec![Vector3::zero(); N_PARTICLES];
-            // Temporary potential array
+        .map(|(i, p1)| {
+            // Thread-local force array
+            let mut force = tls.get_or(|| RefCell::new(vec![Vector3::<f64>::zero(); N_PARTICLES]))
+                .borrow_mut();
+
+            // Temporary potential
             let mut potential: f64 = 0.0;
 
             for (j, p2) in particles[..i].iter().enumerate() {
@@ -42,11 +49,15 @@ pub fn compute_forces<P: PairPotential>(particles: &mut[Particle]) -> f64 {
                     potential += P::energy(dr_magnitude);
                 };
             }
-            (potential, force)
+            potential
         })
-        // Add potential, and vectors element-wise
-        .reduce(|| (0.0, vec![Vector3::zero(); N_PARTICLES]),
-                |(pot_a, f_a), (pot_b, f_b)| (pot_a + pot_b, add_arrays(&f_a, &f_b)));
+        .sum();
+
+    // Sum thread local arrays element-wise
+    let forces: Vec<Vector3<f64>> = tls.into_iter()
+        .map(|x| x.into_inner())
+        .reduce(|a, b| add_arrays(&a, &b))
+        .unwrap();
 
     // Put forces in particle structs
     particles
