@@ -4,4 +4,3 @@
 pub fn temperature(e_kin: f64, n_particles: usize) -> f64 {
     e_kin * 2.0 / 3.0 / n_particles as f64
 }
-

@@ -1,5 +1,5 @@
 use std::vec;
-use cgmath::{Vector3, InnerSpace};
+use cgmath::{Vector3, InnerSpace, Zero};
 use rayon::prelude::*;
 use crate::{N_PARTICLES, BOX_SIZE, CUTOFF, Particle};
 use crate::utility::add_arrays;
@@ -15,7 +15,7 @@ pub fn compute_forces<P: PairPotential>(particles: &mut[Particle]) -> f64 {
         .enumerate()
         .map(| (i, p1) | {
             // Temporary force array
-            let mut force = vec![Vector3::new(0.0, 0.0, 0.0); N_PARTICLES];
+            let mut force = vec![Vector3::zero(); N_PARTICLES];
             // Temporary potential array
             let mut potential: f64 = 0.0;
 
@@ -45,7 +45,7 @@ pub fn compute_forces<P: PairPotential>(particles: &mut[Particle]) -> f64 {
             (potential, force)
         })
         // Add potential, and vectors element-wise
-        .reduce(|| (0.0, vec![Vector3::new(0.0, 0.0, 0.0); N_PARTICLES]),
+        .reduce(|| (0.0, vec![Vector3::zero(); N_PARTICLES]),
                 |(pot_a, f_a), (pot_b, f_b)| (pot_a + pot_b, add_arrays(&f_a, &f_b)));
 
     // Put forces in particle structs
@@ -61,7 +61,7 @@ pub fn compute_forces<P: PairPotential>(particles: &mut[Particle]) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use cgmath::{Point3, Vector3, InnerSpace, assert_abs_diff_eq};
+    use cgmath::{Point3, Vector3, InnerSpace, assert_abs_diff_eq, EuclideanSpace, Zero, Array};
 
     use crate::Particle;
     use crate::forces::compute_forces;
@@ -72,16 +72,16 @@ mod tests {
     fn force() {
         let mut particles = vec![
             Particle {
-                old_position: Point3::new(0.0, 0.0, 0.0),
-                position: Point3::new(0.0, 0.0, 0.0),
-                velocity: Vector3::new(0.0, 0.0, 0.0),
-                force: Vector3::new(0.0, 0.0, 0.0),
+                old_position: Point3::origin(),
+                position: Point3::origin(),
+                velocity: Vector3::zero(),
+                force: Vector3::zero(),
             },
             Particle {
-                old_position: Point3::new(1.0, 1.0, 1.0),
-                position: Point3::new(1.0, 1.0, 1.0),
-                velocity: Vector3::new(0.0, 0.0, 0.0),
-                force: Vector3::new(0.0, 0.0, 0.0),
+                old_position: Point3::from_value(1.0),
+                position: Point3::from_value(1.0),
+                velocity: Vector3::zero(),
+                force: Vector3::zero(),
             },
         ];
 

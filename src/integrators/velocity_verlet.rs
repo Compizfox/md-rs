@@ -18,9 +18,7 @@ impl Integrator for VelocityVerlet {
         p.velocity += 0.5 * p.force * TIMESTEP;
 
         // Limit velocity
-        if limit.is_some() {
-            let speed= limit.unwrap();
-
+        if let Some(speed) = limit {
             if p.velocity.magnitude2() > speed*speed {
                 p.velocity = p.velocity.normalize_to(speed);
             }

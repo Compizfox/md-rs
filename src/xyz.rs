@@ -12,7 +12,7 @@ use crate::N_PARTICLES;
 
 pub struct XYZWriter {
     io_tx: Option<Sender<Vec<u8>>>,
-    pub h: Option<thread::JoinHandle<()>>,
+    h: Option<thread::JoinHandle<()>>,
 }
 
 impl XYZWriter {
@@ -57,7 +57,7 @@ impl XYZWriter {
                     p.velocity.x, p.velocity.y, p.velocity.z
                 )
             })
-            .reduce(|| String::new(), |a, b| a + &b).into_bytes());
+            .reduce(String::new, |a, b| a + &b).into_bytes());
 
         self.io_tx.as_ref().unwrap().send(line).unwrap();
     }

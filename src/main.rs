@@ -11,7 +11,7 @@ use std::sync::mpsc::channel;
 use types::Particle;
 use rayon::prelude::*;
 use rand::prelude::*;
-use cgmath::{Point3, Vector3, InnerSpace};
+use cgmath::{Point3, Vector3, InnerSpace, Zero};
 
 use crate::forces::compute_forces;
 use crate::integrators::Integrator;
@@ -35,20 +35,21 @@ type I = integrators::VelocityVerlet; // Integrator
 
 fn main() {
     // Initialize particle positions and velocities
+    let u = rand_distr::Uniform::new(0.0, BOX_SIZE);
+    let n = rand_distr::Normal::new(0.0, TEMP.sqrt()).unwrap();
+
     let mut particles: Vec<Particle> = (0..N_PARTICLES)
         .into_par_iter()
-        .map_init(|| rand::thread_rng(), |rng, i| {
+        .map_init(rand::thread_rng, |rng, _| {
             // Give particles random (uniformly distributed) positions and (Gaussian distributed) velocities
-            let u = rand_distr::Uniform::new(0.0, BOX_SIZE);
-            let position = Point3{ x: u.sample(rng), y: u.sample(rng), z: u.sample(rng) };
-            let n = rand_distr::Normal::new(0.0, TEMP.sqrt()).unwrap();
-            let velocity = Vector3{ x: n.sample(rng), y: n.sample(rng), z: n.sample(rng) };
+            let position = Point3::new(u.sample(rng), u.sample(rng), u.sample(rng));
+            let velocity = Vector3::new(n.sample(rng), n.sample(rng), n.sample(rng));
 
             Particle {
                 old_position: position,
                 position: position + velocity * TIMESTEP,
                 velocity: velocity,
-                force: Vector3::new(0.0, 0.0, 0.0),
+                force: Vector3::zero(),
             }
         })
         .collect();
