@@ -56,9 +56,9 @@ pub fn compute_forces<P: PairPotential>(particles: &mut[Particle]) -> f64 {
     // Put forces in particle structs
     particles
         .par_iter_mut()
-        .enumerate()
-        .for_each(|(i, p)| {
-            p.force = forces[i];
+        .zip(forces)
+        .for_each(|(p, force)| {
+            p.force = force;
         });
 
     potential
