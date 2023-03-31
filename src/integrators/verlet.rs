@@ -2,7 +2,7 @@ use cgmath::prelude::*;
 use cgmath::Point3;
 
 use crate::integrators::Integrator;
-use crate::utility::image;
+use crate::pbc::image;
 use crate::{BOX_SIZE, TIMESTEP};
 use crate::types::Particle;
 

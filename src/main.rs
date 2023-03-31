@@ -6,6 +6,7 @@ mod thermostats;
 mod potentials;
 mod xyz;
 mod thermo;
+mod pbc;
 
 use std::sync::mpsc::channel;
 use types::Particle;

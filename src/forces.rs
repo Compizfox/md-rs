@@ -2,6 +2,7 @@ use cgmath::{Vector3, InnerSpace, Zero};
 use rayon::prelude::*;
 
 use crate::{N_PARTICLES, BOX_SIZE, CUTOFF, Particle};
+use crate::pbc::minimum_image;
 use crate::utility::ThreadLocalArray;
 use crate::potentials::PairPotential;
 
@@ -27,12 +28,7 @@ pub fn compute_forces<P: PairPotential>(particles: &mut[Particle]) -> f64 {
                 let mut dr = p1.position - p2.position;
 
                 // Apply minimum image convention for PBCs
-                let image = Vector3::new(
-                    (dr.x / BOX_SIZE).round(),
-                    (dr.y / BOX_SIZE).round(),
-                    (dr.z / BOX_SIZE).round(),
-                );
-                dr -= BOX_SIZE * image;
+                dr -= BOX_SIZE * minimum_image(dr, BOX_SIZE);
 
                 let r2: f64 = dr.magnitude2();
 

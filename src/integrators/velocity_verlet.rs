@@ -1,7 +1,7 @@
 use cgmath::prelude::*;
 
 use crate::integrators::Integrator;
-use crate::utility::image;
+use crate::pbc::image;
 use crate::{BOX_SIZE, TIMESTEP};
 use crate::types::Particle;
 
@@ -25,7 +25,6 @@ impl Integrator for VelocityVerlet {
         }
 
         // Apply PBCs
-        let image = image(p.position, BOX_SIZE);
-        p.position -= BOX_SIZE*image;
+        p.position -= BOX_SIZE*image(p.position, BOX_SIZE);
     }
 }
