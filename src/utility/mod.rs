@@ -17,6 +17,7 @@ pub fn par_add_vectors<T: Send + Add<T, Output = T>>(vec_a: Vec<T>, vec_b: Vec<T
 }
 
 /// Adds two arrays element-wise
+/// * `a`, `b` - Two arrays (equally-sized)
 pub fn add_arrays<T: Add<T, Output=T>, const N: usize>(a: [T; N], b: [T; N]) -> [T; N] {
     let c: ArrayVec<T, N> = a.
         into_iter()

@@ -12,7 +12,7 @@ pub struct ThreadLocalArray<T: Send, const N: usize> {
 }
 
 impl<T: Send + Copy, const N: usize> ThreadLocalArray<T, N> {
-    /// Creates a new `ThreadLocalArray`.
+    /// Constructs a new `ThreadLocalArray`.
     /// * `init` - initial value for the elements to initialize the arrays with
     pub fn new(init: T) -> Self {
         Self {

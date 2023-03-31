@@ -1,6 +1,7 @@
 use crate::potentials::PairPotential;
 
 pub struct LJ;
+
 impl PairPotential for LJ {
     fn energy(dr: f64) -> f64 {
         4.0 * (dr.powi(-12) - dr.powi(-6))

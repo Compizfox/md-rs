@@ -5,7 +5,7 @@ use crate::utility::image;
 use crate::{BOX_SIZE, TIMESTEP};
 use crate::types::Particle;
 
-/// velocity Verlet integrators
+/// Velocity Verlet integrator
 pub struct VelocityVerlet;
 
 impl Integrator for VelocityVerlet {

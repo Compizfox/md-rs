@@ -10,16 +10,19 @@ use rayon::prelude::*;
 use crate::types::Particle;
 use crate::N_PARTICLES;
 
+/// Write trajectories (XYZ files) asynchronously
 pub struct XYZWriter {
     io_tx: Option<Sender<Vec<u8>>>,
     h: Option<thread::JoinHandle<()>>,
 }
 
 impl XYZWriter {
+    /// Constructs a new `XYZWriter`.
+    /// * `path` - Path of the trajectory file to create
     pub fn new(path: &str) -> Self {
         let (io_tx, io_rx): (Sender<Vec<u8>>, Receiver<Vec<u8>>) = channel();
 
-        // Spawn IO thread
+        // Spawn IO thread handling compression and IO
         let p = path.to_owned();
         let h = thread::spawn(move || {
             let mut bufwriter = BufWriter::with_capacity(
@@ -42,6 +45,8 @@ impl XYZWriter {
         Self { io_tx: Some(io_tx), h: Some(h) }
     }
 
+    /// Dumps a frame, formatting the frame and submitting it to the IO thread
+    /// * `particles` - Slice of particles
     pub fn write_frame(&mut self, particles: &[Particle]) {
         let mut line: Vec<u8> = vec![];
 
