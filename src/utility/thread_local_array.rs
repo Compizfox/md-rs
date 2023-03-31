@@ -2,7 +2,7 @@ use std::cell::{RefCell, RefMut};
 use std::ops::Add;
 use thread_local::ThreadLocal;
 
-use crate::utility::add_arrays;
+use crate::utility::add_arrays_into;
 
 /// A struct encapsulating a thread-local array type.
 /// Every thread has its own separate copy of the wrapped array.
@@ -33,7 +33,7 @@ impl<T: Send + Add<T, Output=T>, const N: usize> ThreadLocalArray<T, N> {
     pub fn into_sum(self) -> [T; N] {
         self.inner.into_iter()
             .map(|x| x.into_inner())
-            .reduce(|a, b| add_arrays(a, b))
+            .reduce(|a, b| add_arrays_into(a, b))
             .unwrap()
     }
 }
