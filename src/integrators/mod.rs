@@ -1,18 +1,20 @@
 mod verlet;
 mod velocity_verlet;
+mod langevin;
 
 pub use verlet::*;
 pub use velocity_verlet::*;
+pub use langevin::*;
 
 use crate::types::Particle;
 
 pub trait Integrator {
     /// Integration before force calculation
     /// * `p` - Particle to integrate
-    fn integrate_a(p: &mut Particle);
+    fn integrate_a(&self, p: &mut Particle);
 
     /// Integration after force calculation
     /// * `p` - Particle to integrate
     /// * `limit` - Optional speed limit
-    fn integrate_b(p: &mut Particle, limit: Option<f64>);
+    fn integrate_b(&self, p: &mut Particle, limit: Option<f64>);
 }

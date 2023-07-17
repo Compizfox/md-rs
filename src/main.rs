@@ -21,7 +21,7 @@ use crate::thermostats::{Andersen, Thermostat};
 use crate::xyz::XYZWriter;
 
 const N_PARTICLES: usize = 1000;
-const N_STEPS: u32 = 5_000;
+const N_STEPS: u32 = 10_000;
 const BOX_SIZE: f64 = 20.0;  // σ
 const TEMP: f64 = 0.5;       // ε/k_B
 const TIMESTEP: f64 = 0.01; // τ
@@ -30,9 +30,9 @@ const LIMIT_TIMESTEPS: u32 = 200;
 const LIMIT_SPEED: f64 = 1.0;
 const DUMP_INTERVAL: u32 = 10;
 const TRAJECTORY_PATH: &str = "traj.xyz.gz";
+const DAMPING: f64 = 10.0;
 
 type PP = potentials::LJ; // Pair potential
-type I = integrators::VelocityVerlet; // Integrator
 
 fn main() {
     // Initialize particle positions and velocities
@@ -56,6 +56,8 @@ fn main() {
         .collect();
 
     let thermostat = Andersen::new(TEMP);
+    let integrator = integrators::VelocityVerlet;
+    //let integrator = integrators::Langevin::new(DAMPING, TEMP);
     let mut xyz_writer = XYZWriter::new(TRAJECTORY_PATH);
 
     let (tx, rx) = channel();
@@ -66,7 +68,7 @@ fn main() {
         particles
             .par_iter_mut()
             .for_each(|p| {
-                I::integrate_a(p);
+                integrator.integrate_a(p);
             });
 
         let potential = compute_forces::<PP>(&mut particles);
@@ -75,7 +77,7 @@ fn main() {
         let kinetic: f64 = particles
             .par_iter_mut()
             .map(|p| {
-                I::integrate_b(p, if i < LIMIT_TIMESTEPS {Some(LIMIT_SPEED)} else {None});
+                integrator.integrate_b(p, if i < LIMIT_TIMESTEPS {Some(LIMIT_SPEED)} else {None});
                 thermostat.run(p);
                 0.5*p.velocity.magnitude2()
             })
