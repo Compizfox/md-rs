@@ -15,6 +15,10 @@ pub struct XYZWriter {
     h: Option<thread::JoinHandle<()>>,
 }
 
+pub trait WritableParticle {
+    fn write(&self, i: usize) -> String;
+}
+
 impl XYZWriter {
     /// Constructs a new `XYZWriter`.
     /// * `path` - Path of the trajectory file to create
@@ -46,7 +50,7 @@ impl XYZWriter {
 
     /// Dumps a frame, formatting the frame and submitting it to the IO thread
     /// * `particles` - Slice of particles
-    pub fn write_frame(&mut self, particles: &[Particle]) {
+    pub fn write_frame<T: WritableParticle + Sync>(&mut self, particles: &[T]) {
         let mut line: Vec<u8> = vec![];
 
         write!(line, "{}\n\n", particles.len()).unwrap();
@@ -55,11 +59,7 @@ impl XYZWriter {
             .par_iter()
             .enumerate()
             .map(|(i, p)| {
-                format!(
-                    "{}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\n", i,
-                    p.position.x, p.position.y, p.position.z,
-                    p.velocity.x, p.velocity.y, p.velocity.z
-                )
+                p.write(i)
             })
             .reduce(String::new, |a, b| a + &b).into_bytes());
 
