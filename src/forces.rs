@@ -3,7 +3,7 @@ use rayon::prelude::*;
 
 use crate::{N_PARTICLES, BOX_SIZE, CUTOFF, Particle};
 use crate::pbc::minimum_image;
-use crate::utility::ThreadLocalArray;
+use crate::utility::ThreadLocalVec;
 use crate::potentials::PairPotential;
 
 /// Computes pair interactions: set forces in Particle.
@@ -11,7 +11,7 @@ use crate::potentials::PairPotential;
 /// * `particles` - Slice of particles
 pub fn compute_forces<P: PairPotential>(particles: &mut[Particle]) -> f64 {
     // Setup thread-local force arrays
-    let tls: ThreadLocalArray<Vector3<f64>, N_PARTICLES> = ThreadLocalArray::new(Vector3::zero());
+    let tls: ThreadLocalVec<Vector3<f64>, N_PARTICLES> = ThreadLocalVec::new(Vector3::zero());
 
     // Loop over all unique pairs of particles
     let potential: f64 = particles
