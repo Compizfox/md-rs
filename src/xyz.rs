@@ -8,7 +8,6 @@ use flate2::Compression;
 use rayon::prelude::*;
 
 use crate::types::Particle;
-use crate::N_PARTICLES;
 
 /// Write trajectories (XYZ files) asynchronously
 pub struct XYZWriter {
@@ -50,7 +49,7 @@ impl XYZWriter {
     pub fn write_frame(&mut self, particles: &[Particle]) {
         let mut line: Vec<u8> = vec![];
 
-        write!(line, "{}\n\n", N_PARTICLES).unwrap();
+        write!(line, "{}\n\n", particles.len()).unwrap();
 
         line.append(&mut particles
             .par_iter()

@@ -85,7 +85,7 @@ fn main() {
 
         if i % DUMP_INTERVAL == 0 {
             println!("Timestep {}, E={}, E_kin={}, E_pot={}, T={}", i, potential + kinetic, kinetic,
-                     potential, temperature(kinetic, N_PARTICLES));
+                     potential, temperature(kinetic, particles.len()));
             xyz_writer.write_frame(&particles);
         }
 
