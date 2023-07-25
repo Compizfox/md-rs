@@ -1,10 +1,12 @@
 mod verlet;
 mod velocity_verlet;
 mod langevin;
+mod brownian;
 
 pub use verlet::*;
 pub use velocity_verlet::*;
 pub use langevin::*;
+pub use brownian::*;
 
 use crate::types::Particle;
 
