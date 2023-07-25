@@ -9,7 +9,7 @@ use crate::types::Particle;
 
 /// Langevin dynamics integrator
 pub struct Langevin {
-    n: rand_distr::Normal<f64>,
+    n: rand_distr::StandardNormal,
     y: f64,
     T: f64,
 }
@@ -20,7 +20,7 @@ impl Langevin {
     /// * `temperature` - temperature
     pub fn new(gamma: f64, temperature: f64) -> Self {
         Self{
-            n: rand_distr::Normal::new(0.0, 1.0).unwrap(),
+            n: rand_distr::StandardNormal,
             y: gamma,
             T: temperature,
         }
