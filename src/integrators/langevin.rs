@@ -7,7 +7,7 @@ use crate::pbc::image;
 use crate::{BOX_SIZE, TIMESTEP};
 use crate::types::Particle;
 
-/// Langevin dynamics integrator
+/// Langevin dynamics by velocity Verlet
 pub struct Langevin {
     n: rand_distr::StandardNormal,
     y: f64,

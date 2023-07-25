@@ -55,6 +55,8 @@ impl BrownianIntegrator for BAOAB {
     }
 }
 
+/// Generic Brownian Dynamics integrator
+/// (takes an algorithm as generic parameter)
 pub struct Brownian<I: BrownianIntegrator> {
     y: f64,
     T: f64,
@@ -63,6 +65,7 @@ pub struct Brownian<I: BrownianIntegrator> {
 
 impl<I: BrownianIntegrator> Brownian<I> {
     /// Constructs a new `Brownian` integrator.
+    /// * `gamma` - damping
     /// * `temperature` - temperature
     pub fn new(gamma: f64, temperature: f64) -> Self {
         Self{
