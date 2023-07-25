@@ -8,32 +8,41 @@ mod xyz;
 mod thermo;
 mod pbc;
 
+use std::time::Instant;
 use std::sync::mpsc::channel;
 use rayon::prelude::*;
 use rand::prelude::*;
-use cgmath::{Point3, Vector3, InnerSpace, Zero, EuclideanSpace};
+use cgmath::{Point3, Vector3, InnerSpace, Zero};
 
 use crate::forces::compute_forces;
 use crate::integrators::Integrator;
 use crate::pbc::minimum_image;
 use crate::thermo::temperature;
-use crate::thermostats::{Andersen, Thermostat};
+use crate::thermostats::Thermostat;
 use crate::types::{Particle, FixedParticle};
 use crate::xyz::XYZWriter;
 
-const N_PARTICLES: usize = 1000;
-const N_STEPS: u32 = 1000_000;
-const BOX_SIZE: f64 = 75.0;  // σ
-const TEMP: f64 = 10.0;       // ε/k_B
-const TIMESTEP: f64 = 0.025; // τ
+const N_PARTICLES: usize = 100;
+const N_STEPS: u32 = 10_000_000;
+const BOX_SIZE: f64 = 1000.0;  // σ
+const TEMP: f64 = 100.0;       // ε/k_B
+const TIMESTEP: f64 = 0.1; // τ
 const CUTOFF: f64 = 2.5;     // σ
 const LIMIT_TIMESTEPS: u32 = 100;
 const LIMIT_SPEED: f64 = 1.0;
-const DUMP_INTERVAL: u32 = 1000;
+const DUMP_INTERVAL: u32 = 10_000;
 const TRAJECTORY_PATH: &str = "traj.xyz.gz";
-const DAMPING: f64 = 10.0;
+const DAMPING: f64 = 1000.0;
 
 type PP = potentials::LJ; // Pair potential
+
+// Inner and outer shell radii
+fn r1(r_max: f64) -> f64 {
+    r_max + 5.0
+}
+fn r2(r_max: f64) -> f64 {
+    r1(r_max) + 5.0
+}
 
 fn main() {
     // Initialize particle positions and velocities
@@ -42,21 +51,27 @@ fn main() {
 
     let mut particles: Vec<Particle> = (0..N_PARTICLES)
         .into_par_iter()
-        .map_init(rand::thread_rng, |rng, _| new_particle(u, n, rng))
+        .map_init(thread_rng, |rng, _| new_random_particle(u, n, rng))
         .collect();
 
     // Create seed particle
-    let p = Point3::new(BOX_SIZE * 0.5, BOX_SIZE * 0.5, BOX_SIZE * 0.5);
-    let mut fixed_particles: Vec<_> = vec![FixedParticle{position: p, timestep: 0}];
+    let mut fixed_particles: Vec<_> = vec![FixedParticle{
+        position: Point3::new(BOX_SIZE * 0.5, BOX_SIZE * 0.5, BOX_SIZE * 0.5),
+        timestep: 0
+    }];
+    let mut farthest_fixed_particle = 0.0;
 
     //let thermostat = Andersen::new(TEMP);
     //let integrator = integrators::VelocityVerlet;
-    let integrator = integrators::Langevin::new(DAMPING, TEMP);
+    //let integrator = integrators::Langevin::new(DAMPING, TEMP);
+    let integrator = integrators::Brownian::<integrators::BAOAB>::new(DAMPING, TEMP);
     let mut xyz_writer = XYZWriter::new(TRAJECTORY_PATH);
     let mut xyz_writer_fixed = XYZWriter::new("fixed.xyz.gz");
 
     let (tx, rx) = channel();
     ctrlc::set_handler(move || tx.send(()).unwrap()).unwrap();
+
+    let now = Instant::now();
 
     // Main MD loop
     for i in 0..N_STEPS {
@@ -66,7 +81,8 @@ fn main() {
                 integrator.integrate_a(p);
             });
 
-        let potential = compute_forces::<PP>(&mut particles);
+        //let potential = compute_forces::<PP>(&mut particles);
+        let potential = 0.0;
 
         // Loop over particles, integrating equations of motion and computing kinetic energy
         let kinetic: f64 = particles
@@ -95,23 +111,61 @@ fn main() {
             })
             .collect::<Vec<usize>>();
 
-        // Add new walking particles
+        // Reset newly fixed particles
+        // Tricky to parallelise because of required mutable access to particles[]
         fixed_particles.extend(new_fixed_particles
             .into_iter()
             .map(|i_f_p| {
-                // Clone particle into fixed particle, and randomise the original particle
+                // Clone particle's position, and randomise the original particle
                 let p = particles[i_f_p].position;
-                particles[i_f_p] = new_particle(u, n, &mut thread_rng());
+
+                // Calculate distance from seed
+                let mut dr = p - fixed_particles[0].position;
+                dr -= BOX_SIZE * minimum_image(dr, BOX_SIZE);
+
+                if dr.magnitude2() > farthest_fixed_particle {
+                    farthest_fixed_particle = dr.magnitude2();
+                }
+
+                particles[i_f_p] = new_shell_particle(n, &mut thread_rng(), farthest_fixed_particle, fixed_particles[0].position);
+
                 FixedParticle{position: p, timestep: i}
             })
             .collect::<Vec<FixedParticle>>()
         );
 
+        // Add more walking particles
+        let desired_particles = (2.0 * farthest_fixed_particle) as usize;
+        let new_particles = desired_particles.saturating_sub(particles.len());
+        particles.extend((0..new_particles)
+            .into_par_iter()
+            .map_init(thread_rng, |rng, _| {
+                new_shell_particle(n, rng, farthest_fixed_particle, fixed_particles[0].position)
+            })
+            .collect::<Vec<Particle>>()
+        );
+
+        // Move particles inside outer shell
+        particles
+            .par_iter_mut()
+            .for_each_init(thread_rng, |rng, p| {
+                // Calculate distance from seed
+                let dr = p.position - fixed_particles[0].position;
+
+                if dr.magnitude() > (r2(farthest_fixed_particle.sqrt())) {
+                    *p = new_shell_particle(n, rng, farthest_fixed_particle, fixed_particles[0].position);
+                }
+            });
+
         if i % DUMP_INTERVAL == 0 {
-            println!("Timestep {:.3}, E={:.3}, E_kin={:.3}, E_pot={:.3}, T={:.3}, n_particles={}, n_fixed={}", i,
+            let walltime = now.elapsed().as_secs() as f64;
+            let fixed_over_time = fixed_particles.len() as f64 / walltime;
+            let ts_over_time = i as f64 / walltime;
+            println!("Timestep {:.3}, E={:.3}, E_kin={:.3}, E_pot={:.3}, T={:.3}, n_particles={}, \
+             n_fixed={}, n_fixed_overtime={:.3}, ts_overtime={:.3}, r2={:.3}", i,
                      potential + kinetic, kinetic, potential,
                      temperature(kinetic,particles.len()), particles.len(),
-                     fixed_particles.len());
+                     fixed_particles.len(), fixed_over_time, ts_over_time, farthest_fixed_particle);
             xyz_writer.write_frame(&particles);
             xyz_writer_fixed.write_frame(&fixed_particles);
         }
@@ -125,14 +179,27 @@ fn main() {
     }
 }
 
-fn new_particle(u: rand_distr::Uniform<f64>, n: rand_distr::Normal<f64>, rng: &mut ThreadRng) -> Particle {
+fn new_random_particle<T: Distribution<f64>, U: Distribution<f64>>(dp: T, dv: U, rng: &mut ThreadRng) -> Particle {
     // Give particles random (uniformly distributed) positions and (Gaussian distributed) velocities
-    let position = Point3::new(u.sample(rng), u.sample(rng), u.sample(rng));
-    let velocity = Vector3::new(n.sample(rng), n.sample(rng), n.sample(rng));
+    let position = Point3::new(dp.sample(rng), dp.sample(rng), dp.sample(rng));
+    let velocity = Vector3::new(dv.sample(rng), dv.sample(rng), dv.sample(rng));
 
     Particle {
         old_position: position,
         position: position + velocity * TIMESTEP,
+        velocity: velocity,
+        force: Vector3::zero(),
+    }
+}
+
+fn new_shell_particle(n: rand_distr::Normal<f64>, rng: &mut ThreadRng, r_min_sq: f64, center: Point3<f64>) -> Particle {
+    // Generate particle on sphere r_min_sq.sqrt() + DR
+    let a: [f64; 3] = rand_distr::UnitSphere.sample(rng);
+    let velocity = Vector3::new(n.sample(rng), n.sample(rng), n.sample(rng));
+
+    Particle {
+        old_position: center + Vector3::from(a) * r1(r_min_sq.sqrt()),
+        position: center + Vector3::from(a) * r1(r_min_sq.sqrt()) + velocity * TIMESTEP,
         velocity: velocity,
         force: Vector3::zero(),
     }
