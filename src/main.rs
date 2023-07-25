@@ -8,6 +8,7 @@ mod xyz;
 mod thermo;
 mod pbc;
 
+use std::time::Instant;
 use std::sync::mpsc::channel;
 use types::Particle;
 use rayon::prelude::*;
@@ -17,7 +18,7 @@ use cgmath::{Point3, Vector3, InnerSpace, Zero};
 use crate::forces::compute_forces;
 use crate::integrators::Integrator;
 use crate::thermo::temperature;
-use crate::thermostats::{Andersen, Thermostat};
+use crate::thermostats::Thermostat;
 use crate::xyz::XYZWriter;
 
 const N_PARTICLES: usize = 1000;
@@ -41,27 +42,18 @@ fn main() {
 
     let mut particles: Vec<Particle> = (0..N_PARTICLES)
         .into_par_iter()
-        .map_init(rand::thread_rng, |rng, _| {
-            // Give particles random (uniformly distributed) positions and (Gaussian distributed) velocities
-            let position = Point3::new(u.sample(rng), u.sample(rng), u.sample(rng));
-            let velocity = Vector3::new(n.sample(rng), n.sample(rng), n.sample(rng));
-
-            Particle {
-                old_position: position,
-                position: position + velocity * TIMESTEP,
-                velocity: velocity,
-                force: Vector3::zero(),
-            }
-        })
+        .map_init(thread_rng, |rng, _| new_random_particle(u, n, rng))
         .collect();
 
-    let thermostat = Andersen::new(TEMP);
+    let thermostat = thermostats::Andersen::new(TEMP);
     let integrator = integrators::VelocityVerlet;
     //let integrator = integrators::Langevin::new(DAMPING, TEMP);
     let mut xyz_writer = XYZWriter::new(TRAJECTORY_PATH);
 
     let (tx, rx) = channel();
     ctrlc::set_handler(move || tx.send(()).unwrap()).unwrap();
+
+    let now = Instant::now();
 
     // Main MD loop
     for i in 0..N_STEPS {
@@ -84,8 +76,13 @@ fn main() {
             .sum();
 
         if i % DUMP_INTERVAL == 0 {
-            println!("Timestep {}, E={}, E_kin={}, E_pot={}, T={}", i, potential + kinetic, kinetic,
-                     potential, temperature(kinetic, particles.len()));
+            let walltime = now.elapsed().as_secs() as f64 / 3600.0;
+            let perf = i as f64 * TIMESTEP / walltime;
+
+            println!("Timestep {}, E={:.3}, E_kin={:.3}, E_pot={:.3}, T={:.3}, n={}, perf={} tau/day",
+                     i, potential + kinetic, kinetic, potential, temperature(kinetic, particles.len()),
+                     particles.len(), perf
+            );
             xyz_writer.write_frame(&particles);
         }
 
@@ -95,5 +92,18 @@ fn main() {
             drop(xyz_writer);
             break;
         }
+    }
+}
+
+fn new_random_particle<T: Distribution<f64>, U: Distribution<f64>>(dp: T, dv: U, rng: &mut ThreadRng) -> Particle {
+    // Give particles random (uniformly distributed) positions and (Gaussian distributed) velocities
+    let position = Point3::new(dp.sample(rng), dp.sample(rng), dp.sample(rng));
+    let velocity = Vector3::new(dv.sample(rng), dv.sample(rng), dv.sample(rng));
+
+    Particle {
+        old_position: position,
+        position: position + velocity * TIMESTEP,
+        velocity: velocity,
+        force: Vector3::zero(),
     }
 }
