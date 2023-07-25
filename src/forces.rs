@@ -10,16 +10,15 @@ use crate::potentials::PairPotential;
 /// Returns total potential energy.
 /// * `particles` - Slice of particles
 pub fn compute_forces<P: PairPotential>(particles: &mut[Particle]) -> f64 {
-    // Setup thread-local force arrays
-    let tls: ThreadLocalVec<Vector3<f64>> = ThreadLocalVec::new(Vector3::zero(),
-                                                                particles.len());
+    // Setup thread-local force vectors
+    let tls: ThreadLocalVec<Vector3<f64>> = ThreadLocalVec::new(Vector3::zero(), particles.len());
 
     // Loop over all unique pairs of particles
     let potential: f64 = particles
         .par_iter()
         .enumerate()
         .map(|(i, p1)| {
-            // Thread-local force array
+            // Thread-local force vector
             let mut force = tls.borrow_mut();
 
             // Temporary potential
@@ -47,7 +46,7 @@ pub fn compute_forces<P: PairPotential>(particles: &mut[Particle]) -> f64 {
         })
         .sum();
 
-    // Sum thread-local arrays element-wise
+    // Sum thread-local vectors element-wise
     let forces = tls.into_sum();
 
     // Put forces in particle structs
