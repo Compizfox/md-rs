@@ -1,9 +1,10 @@
-use cgmath::Vector3;
+use cgmath::prelude::*;
 use rand::prelude::*;
 
 use crate::thermostats::Thermostat;
 use crate::TIMESTEP;
 use crate::types::Particle;
+use crate::Vector;
 
 pub struct Andersen {
     n: rand_distr::Normal<f64>,
@@ -21,11 +22,7 @@ impl Thermostat for Andersen {
     fn run(&self, p: &mut Particle) {
         let mut rng = thread_rng();
         if rng.gen_range(0.0..1.0) < TIMESTEP {
-            p.velocity = Vector3::new(
-                self.n.sample(&mut rng),
-                self.n.sample(&mut rng),
-                self.n.sample(&mut rng)
-            );
+            p.velocity = Vector::zero().map(|_| self.n.sample(&mut rng))
         }
     }
 }

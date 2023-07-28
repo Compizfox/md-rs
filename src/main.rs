@@ -12,7 +12,7 @@ use std::time::Instant;
 use std::sync::mpsc::channel;
 use rayon::prelude::*;
 use rand::prelude::*;
-use cgmath::{Point3, Vector3, InnerSpace, Zero};
+use cgmath::prelude::*;
 
 use crate::forces::compute_forces;
 use crate::integrators::Integrator;
@@ -22,7 +22,7 @@ use crate::thermostats::Thermostat;
 use crate::types::{Particle, FixedParticle};
 use crate::xyz::XYZWriter;
 
-const N_PARTICLES: usize = 100;
+const N_PARTICLES: usize = 50;
 const N_STEPS: u32 = 10_000_000;
 const BOX_SIZE: f64 = 1000.0;  // σ
 const TEMP: f64 = 100.0;       // ε/k_B
@@ -34,14 +34,19 @@ const DUMP_INTERVAL: u32 = 10_000;
 const TRAJECTORY_PATH: &str = "traj.xyz.gz";
 const DAMPING: f64 = 1000.0;
 
+const N: u8 = 2; // dimensionality
+use cgmath::{Point3, Point2, Vector3, Vector2};
+type Vector = Vector2<f64>;
+type Point = Point2<f64>;
+
 type PP = potentials::LJ; // Pair potential
 
 // Inner and outer shell radii
 fn r1(r_max: f64) -> f64 {
-    r_max + 5.0
+    r_max + 2.5
 }
 fn r2(r_max: f64) -> f64 {
-    r1(r_max) + 5.0
+    r1(r_max) + 2.5
 }
 
 fn main() {
@@ -56,7 +61,7 @@ fn main() {
 
     // Create seed particle
     let mut fixed_particles: Vec<_> = vec![FixedParticle{
-        position: Point3::new(BOX_SIZE * 0.5, BOX_SIZE * 0.5, BOX_SIZE * 0.5),
+        position: Point::origin().map(|_| BOX_SIZE * 0.5),
         timestep: 0
     }];
     let mut farthest_fixed_particle = 0.0;
@@ -99,7 +104,7 @@ fn main() {
             .par_iter()
             .enumerate()
             .filter_map(|(i, p)| {
-                for f_p in &fixed_particles {
+                for f_p in (&fixed_particles).iter().rev() {
                     let mut dr = p.position - f_p.position;
                     dr -= BOX_SIZE * minimum_image(dr, BOX_SIZE);
 
@@ -134,7 +139,7 @@ fn main() {
             .collect::<Vec<FixedParticle>>()
         );
 
-        // Add more walking particles
+/*        // Add more walking particles
         let desired_particles = (2.0 * farthest_fixed_particle) as usize;
         let new_particles = desired_particles.saturating_sub(particles.len());
         particles.extend((0..new_particles)
@@ -143,7 +148,7 @@ fn main() {
                 new_shell_particle(n, rng, farthest_fixed_particle, fixed_particles[0].position)
             })
             .collect::<Vec<Particle>>()
-        );
+        );*/
 
         // Move particles inside outer shell
         particles
@@ -181,26 +186,26 @@ fn main() {
 
 fn new_random_particle<T: Distribution<f64>, U: Distribution<f64>>(dp: T, dv: U, rng: &mut ThreadRng) -> Particle {
     // Give particles random (uniformly distributed) positions and (Gaussian distributed) velocities
-    let position = Point3::new(dp.sample(rng), dp.sample(rng), dp.sample(rng));
-    let velocity = Vector3::new(dv.sample(rng), dv.sample(rng), dv.sample(rng));
+    let position = Point::origin().map(|_| dp.sample(rng));
+    let velocity = Vector::zero().map(|_| dv.sample(rng));
 
     Particle {
         old_position: position,
         position: position + velocity * TIMESTEP,
         velocity: velocity,
-        force: Vector3::zero(),
+        force: Vector::zero(),
     }
 }
 
-fn new_shell_particle(n: rand_distr::Normal<f64>, rng: &mut ThreadRng, r_min_sq: f64, center: Point3<f64>) -> Particle {
+fn new_shell_particle(n: rand_distr::Normal<f64>, rng: &mut ThreadRng, r_min_sq: f64, center: Point) -> Particle {
     // Generate particle on sphere r_min_sq.sqrt() + DR
-    let a: [f64; 3] = rand_distr::UnitSphere.sample(rng);
-    let velocity = Vector3::new(n.sample(rng), n.sample(rng), n.sample(rng));
+    let a: [f64; N as usize] = utility::rand_unit_hypersphere::<{N as usize}>(rng).try_into().unwrap();
+    let velocity = Vector::zero().map(|_| n.sample(rng));
 
     Particle {
-        old_position: center + Vector3::from(a) * r1(r_min_sq.sqrt()),
-        position: center + Vector3::from(a) * r1(r_min_sq.sqrt()) + velocity * TIMESTEP,
+        old_position: center + Vector::from(a) * r1(r_min_sq.sqrt()),
+        position: center + Vector::from(a) * r1(r_min_sq.sqrt()) + velocity * TIMESTEP,
         velocity: velocity,
-        force: Vector3::zero(),
+        force: Vector::zero(),
     }
 }

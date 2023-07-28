@@ -1,12 +1,12 @@
 use std::marker::PhantomData;
 use cgmath::prelude::*;
-use cgmath::{Vector3};
 use rand::prelude::*;
 
 use crate::integrators::Integrator;
 use crate::pbc::image;
 use crate::{BOX_SIZE, TIMESTEP};
 use crate::types::Particle;
+use crate::Vector;
 
 pub trait BrownianIntegrator {
     fn integrate(p: &mut Particle, y: f64, T: f64);
@@ -20,11 +20,8 @@ impl BrownianIntegrator for EulerMaruyama {
         let n = rand_distr::StandardNormal;
         let mut rng = thread_rng();
 
-        let a = Vector3::new(
-            n.sample(&mut rng),
-            n.sample(&mut rng),
-            n.sample(&mut rng)
-        );
+        let a = Vector::zero().map(|_| n.sample(&mut rng));
+
         p.old_position = p.position;
         p.position += p.force * TIMESTEP / y + (2.0 * T * TIMESTEP / y).sqrt() * a;
         p.position -= BOX_SIZE*image(p.position, BOX_SIZE);
@@ -39,16 +36,9 @@ impl BrownianIntegrator for BAOAB {
         let n = rand_distr::StandardNormal;
         let mut rng = thread_rng();
 
-        let a1 = Vector3::new(
-            n.sample(&mut rng),
-            n.sample(&mut rng),
-            n.sample(&mut rng)
-        );
-        let a2 = Vector3::new(
-            n.sample(&mut rng),
-            n.sample(&mut rng),
-            n.sample(&mut rng)
-        );
+        let a1 = Vector::zero().map(|_| n.sample(&mut rng));
+        let a2 = Vector::zero().map(|_| n.sample(&mut rng));
+
         p.old_position = p.position;
         p.position += p.force * TIMESTEP / y + (T * TIMESTEP / (2.0 * y)).sqrt() * (a1 + a2);
         p.position -= BOX_SIZE*image(p.position, BOX_SIZE);
