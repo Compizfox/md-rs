@@ -22,7 +22,7 @@ use crate::thermostats::Thermostat;
 use crate::types::{Particle, FixedParticle};
 use crate::xyz::XYZWriter;
 
-const N_PARTICLES: usize = 50;
+const N_PARTICLES: usize = 10;
 const N_STEPS: u32 = 10_000_000;
 const BOX_SIZE: f64 = 1000.0;  // σ
 const TEMP: f64 = 100.0;       // ε/k_B
@@ -43,10 +43,10 @@ type PP = potentials::LJ; // Pair potential
 
 // Inner and outer shell radii
 fn r1(r_max: f64) -> f64 {
-    r_max + 2.5
+    r_max + 2.0
 }
 fn r2(r_max: f64) -> f64 {
-    r1(r_max) + 2.5
+    r1(r_max) + 2.0
 }
 
 fn main() {
@@ -139,8 +139,8 @@ fn main() {
             .collect::<Vec<FixedParticle>>()
         );
 
-/*        // Add more walking particles
-        let desired_particles = (2.0 * farthest_fixed_particle) as usize;
+        // Add more walking particles
+        let desired_particles = (2.0 * farthest_fixed_particle.sqrt()) as usize;
         let new_particles = desired_particles.saturating_sub(particles.len());
         particles.extend((0..new_particles)
             .into_par_iter()
@@ -148,7 +148,7 @@ fn main() {
                 new_shell_particle(n, rng, farthest_fixed_particle, fixed_particles[0].position)
             })
             .collect::<Vec<Particle>>()
-        );*/
+        );
 
         // Move particles inside outer shell
         particles
