@@ -7,7 +7,7 @@ use flate2::write::GzEncoder;
 use flate2::Compression;
 use rayon::prelude::*;
 
-use crate::types::Particle;
+use crate::types::{Particle, WritableTuple};
 
 /// Write trajectories (XYZ files) asynchronously
 pub struct XYZWriter {
@@ -55,11 +55,8 @@ impl XYZWriter {
             .par_iter()
             .enumerate()
             .map(|(i, p)| {
-                format!(
-                    "{}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\n", i,
-                    p.position.x, p.position.y, p.position.z,
-                    p.velocity.x, p.velocity.y, p.velocity.z
-                )
+                format!("{}\t", i)
+                    + &p.position.write() + "\t" + &p.velocity.write() + "\n"
             })
             .reduce(String::new, |a, b| a + &b).into_bytes());
 

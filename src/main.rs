@@ -13,7 +13,7 @@ use std::sync::mpsc::channel;
 use types::Particle;
 use rayon::prelude::*;
 use rand::prelude::*;
-use cgmath::{Point3, Vector3, InnerSpace, Zero};
+use cgmath::prelude::*;
 
 use crate::forces::compute_forces;
 use crate::integrators::Integrator;
@@ -32,6 +32,11 @@ const LIMIT_SPEED: f64 = 1.0;
 const DUMP_INTERVAL: u32 = 10;
 const TRAJECTORY_PATH: &str = "traj.xyz.gz";
 const DAMPING: f64 = 10.0;
+
+const N: u8 = 2; // dimensionality
+use cgmath::{Point3, Vector3};
+type Vector = Vector3<f64>;
+type Point = Point3<f64>;
 
 type PP = potentials::LJ; // Pair potential
 
@@ -97,13 +102,13 @@ fn main() {
 
 fn new_random_particle<T: Distribution<f64>, U: Distribution<f64>>(dp: T, dv: U, rng: &mut ThreadRng) -> Particle {
     // Give particles random (uniformly distributed) positions and (Gaussian distributed) velocities
-    let position = Point3::new(dp.sample(rng), dp.sample(rng), dp.sample(rng));
-    let velocity = Vector3::new(dv.sample(rng), dv.sample(rng), dv.sample(rng));
+    let position = Point::origin().map(|_| dp.sample(rng));
+    let velocity = Vector::zero().map(|_| dv.sample(rng));
 
     Particle {
         old_position: position,
         position: position + velocity * TIMESTEP,
         velocity: velocity,
-        force: Vector3::zero(),
+        force: Vector::zero(),
     }
 }

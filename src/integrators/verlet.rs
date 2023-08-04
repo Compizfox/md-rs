@@ -1,10 +1,10 @@
 use cgmath::prelude::*;
-use cgmath::Point3;
 
 use crate::integrators::Integrator;
 use crate::pbc::image;
 use crate::{BOX_SIZE, TIMESTEP};
 use crate::types::Particle;
+use crate::{Point};
 
 /// Störmer–Verlet integrator
 pub struct Verlet;
@@ -13,7 +13,7 @@ impl Integrator for Verlet {
     fn integrate_a(&self, _: &mut Particle) {}
 
     fn integrate_b(&self, p: &mut Particle, limit: Option<f64>) {
-        let mut new_position: Point3<f64> = EuclideanSpace::from_vec(2.0*p.position - p.old_position + p.force*TIMESTEP*TIMESTEP);
+        let mut new_position: Point = EuclideanSpace::from_vec(2.0*p.position - p.old_position + p.force*TIMESTEP*TIMESTEP);
         p.velocity = (p.position - p.old_position) / (2.0*TIMESTEP);
 
         // Limit velocity

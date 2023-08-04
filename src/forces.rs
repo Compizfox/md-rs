@@ -1,17 +1,18 @@
-use cgmath::{Vector3, InnerSpace, Zero};
+use cgmath::prelude::*;
 use rayon::prelude::*;
 
 use crate::{BOX_SIZE, CUTOFF, Particle};
 use crate::pbc::minimum_image;
 use crate::utility::ThreadLocalVec;
 use crate::potentials::PairPotential;
+use crate::Vector;
 
 /// Computes pair interactions: set forces in Particle.
 /// Returns total potential energy.
 /// * `particles` - Slice of particles
 pub fn compute_forces<P: PairPotential>(particles: &mut[Particle]) -> f64 {
     // Setup thread-local force vectors
-    let tls: ThreadLocalVec<Vector3<f64>> = ThreadLocalVec::new(Vector3::zero(), particles.len());
+    let tls: ThreadLocalVec<Vector> = ThreadLocalVec::new(Vector::zero(), particles.len());
 
     // Loop over all unique pairs of particles
     let potential: f64 = particles
@@ -62,27 +63,29 @@ pub fn compute_forces<P: PairPotential>(particles: &mut[Particle]) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use cgmath::{Point3, Vector3, InnerSpace, assert_abs_diff_eq, EuclideanSpace, Zero, Array};
+    use cgmath::prelude::*;
+    use cgmath::assert_abs_diff_eq;
 
     use crate::Particle;
     use crate::forces::compute_forces;
     use crate::potentials::LJ;
     use crate::potentials::PairPotential;
+    use crate::{Vector, Point};
 
     #[test]
     fn force() {
         let mut particles = vec![
             Particle {
-                old_position: Point3::origin(),
-                position: Point3::origin(),
-                velocity: Vector3::zero(),
-                force: Vector3::zero(),
+                old_position: Point::origin(),
+                position: Point::origin(),
+                velocity: Vector::zero(),
+                force: Vector::zero(),
             },
             Particle {
-                old_position: Point3::from_value(1.0),
-                position: Point3::from_value(1.0),
-                velocity: Vector3::zero(),
-                force: Vector3::zero(),
+                old_position: Point::from_value(1.0),
+                position: Point::from_value(1.0),
+                velocity: Vector::zero(),
+                force: Vector::zero(),
             },
         ];
 
